@@ -1,14 +1,85 @@
+import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
+import 'package:firebase_auth/firebase_auth.dart';
+import 'home_page.dart';
 import 'sign_up.dart';
+import 'home_page.dart';  // Import HomePage here
+
 class LoginScreen extends StatefulWidget {
   const LoginScreen({super.key});
 
   @override
-  State<LoginScreen> createState() => _LoginScreenState();
+  _LoginScreenState createState() => _LoginScreenState();
 }
 
-
 class _LoginScreenState extends State<LoginScreen> {
+  final FirebaseAuth _auth = FirebaseAuth.instance;
+
+  final TextEditingController _emailController = TextEditingController();
+  final TextEditingController _passwordController = TextEditingController();
+  bool _isLoading = false;
+
+  void _login() async {
+    final email = _emailController.text.trim();
+    final password = _passwordController.text.trim();
+
+    if (email.isEmpty || password.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text("Please fill all fields.")),
+      );
+      return;
+    }
+
+    setState(() {
+      _isLoading = true;
+    });
+
+    try {
+      // Log in with email and password
+      final UserCredential userCredential = await _auth.signInWithEmailAndPassword(
+        email: email,
+        password: password,
+      );
+
+      // Fetch the user role from Firestore
+      final uid = userCredential.user?.uid;
+      if (uid != null) {
+        final userDoc = await FirebaseFirestore.instance.collection('users').doc(uid).get();
+
+        if (userDoc.exists) {
+          final userData = userDoc.data();
+          final role = userData?['role'] ?? 'user'; // Default role is 'user' if not specified
+
+          // Navigate to the HomePage and pass the role
+          Navigator.pushReplacement(
+            context,
+            MaterialPageRoute(
+              builder: (_) => HomePage(loggedInUserRole: role),
+            ),
+          );
+        } else {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text("User data not found.")),
+          );
+        }
+      }
+    } on FirebaseAuthException catch (e) {
+      String message = "An error occurred. Please try again.";
+      if (e.code == 'user-not-found') {
+        message = "No user found for this email.";
+      } else if (e.code == 'wrong-password') {
+        message = "Incorrect password.";
+      }
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(message)),
+      );
+    } finally {
+      setState(() {
+        _isLoading = false;
+      });
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -26,10 +97,9 @@ class _LoginScreenState extends State<LoginScreen> {
                     width: double.infinity,
                     color: Colors.blueGrey[900],
                     child: Image.asset(
-                      'assets/map_background.jpg', // Replace with the correct path to your image
+                      'assets/map_background.jpg',
                       fit: BoxFit.cover,
                     ),
-
                   ),
                   const SizedBox(height: 40),
 
@@ -45,6 +115,7 @@ class _LoginScreenState extends State<LoginScreen> {
 
                   // Email TextField
                   TextField(
+                    controller: _emailController,
                     decoration: InputDecoration(
                       labelText: "Email Address",
                       border: OutlineInputBorder(
@@ -56,6 +127,7 @@ class _LoginScreenState extends State<LoginScreen> {
 
                   // Password TextField
                   TextField(
+                    controller: _passwordController,
                     obscureText: true,
                     decoration: InputDecoration(
                       labelText: "Password",
@@ -71,7 +143,9 @@ class _LoginScreenState extends State<LoginScreen> {
                   Align(
                     alignment: Alignment.centerRight,
                     child: TextButton(
-                      onPressed: () {},
+                      onPressed: () {
+                        // Handle password reset functionality
+                      },
                       child: const Text("Forgot password?"),
                     ),
                   ),
@@ -80,8 +154,10 @@ class _LoginScreenState extends State<LoginScreen> {
                   // Login button
                   SizedBox(
                     width: double.infinity,
-                    child: ElevatedButton(
-                      onPressed: () {},
+                    child: _isLoading
+                        ? Center(child: CircularProgressIndicator())
+                        : ElevatedButton(
+                      onPressed: _login,
                       style: ElevatedButton.styleFrom(
                         backgroundColor: Colors.blue,
                         shape: RoundedRectangleBorder(
@@ -112,7 +188,7 @@ class _LoginScreenState extends State<LoginScreen> {
                   ),
                   const SizedBox(height: 20),
 
-                  // Social login buttons
+                  // Social login buttons (Placeholder)
                   const Text("Or continue with"),
                   const SizedBox(height: 12),
                   Row(
@@ -121,17 +197,23 @@ class _LoginScreenState extends State<LoginScreen> {
                       IconButton(
                         icon: const Icon(Icons.g_mobiledata),
                         color: Colors.red,
-                        onPressed: () {},
+                        onPressed: () {
+                          // Google sign-in integration
+                        },
                       ),
                       IconButton(
                         icon: const Icon(Icons.apple),
                         color: Colors.black,
-                        onPressed: () {},
+                        onPressed: () {
+                          // Apple sign-in integration
+                        },
                       ),
                       IconButton(
                         icon: const Icon(Icons.facebook),
                         color: Colors.blue,
-                        onPressed: () {},
+                        onPressed: () {
+                          // Facebook sign-in integration
+                        },
                       ),
                     ],
                   ),
@@ -144,6 +226,3 @@ class _LoginScreenState extends State<LoginScreen> {
     );
   }
 }
-
-
-
