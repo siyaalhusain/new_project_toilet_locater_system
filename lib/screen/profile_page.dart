@@ -1,8 +1,8 @@
 import 'dart:async';
-
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:project_x/screen/ManageUser.dart';
+import 'package:project_x/screen/renew_subscription_page.dart';
 import 'package:project_x/screen/update_maintanance_status.dart';
 import 'package:project_x/screen/user_counting_page.dart';
 import 'package:project_x/screen/view_counting_page.dart';
@@ -13,7 +13,6 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'dart:io';
 import 'package:project_x/screen/admin_notifications_page.dart';
-
 import 'AddCommentPage.dart';
 import 'AddMaintainerPage.dart';
 import 'AddToiletPage.dart';
@@ -23,13 +22,21 @@ import 'ReportIssuePage.dart';
 import 'ViewReportsPage.dart';
 import 'View_assign_task.dart';
 import 'contact_us_page.dart';
+import 'owner_notfication_page.dart';
 import 'view_reviews_page.dart';
 import 'admin_payment_verification_screen.dart';
 
 class ProfilePage extends StatefulWidget {
   final String role;
+  final bool isAccountActive; // Add this parameter
+  final String? paymentStatus; // Add this parameter
 
-  const ProfilePage({Key? key, required this.role}) : super(key: key);
+  const ProfilePage({
+    Key? key,
+    required this.role,
+    this.isAccountActive = true, // Default to true
+    this.paymentStatus, // Add this
+  }) : super(key: key);
 
   @override
   _ProfilePageState createState() => _ProfilePageState();
@@ -695,6 +702,10 @@ class _ProfilePageState extends State<ProfilePage> {
   }
 
   List<RoleAction> _getActionsForRole(String role) {
+    // Get the account status from shared preferences or widget
+    bool isAccountActive = widget.isAccountActive;
+    String paymentStatus = widget.paymentStatus ?? 'pending';
+
     switch (role) {
       case 'Admin':
         return [
@@ -720,43 +731,112 @@ class _ProfilePageState extends State<ProfilePage> {
           ),
         ];
       case 'Owner':
-        return [
-          RoleAction(
-            title: 'Add Toilets',
-            icon: Icons.add_location_rounded,
-            page: AddToiletPage(),
-          ),
-          RoleAction(
-            title: 'Manage Toilets',
-            icon: Icons.manage_search_rounded,
-            page: ManageToiletsPage(),
-          ),
-          RoleAction(
-            title: 'Add Maintainers',
-            icon: Icons.person_add_rounded,
-            page: ImprovedAddMaintainerPage(),
-          ),
-          RoleAction(
-            title: 'Manage Maintainers',
-            icon: Icons.manage_accounts_rounded,
-            page: ImprovedManageMaintainersPage(),
-          ),
-          RoleAction(
-            title: 'View Reports',
-            icon: Icons.report_rounded,
-            page: ViewReportsPage(),
-          ),
-          RoleAction(
-            title: 'Toilet Usage Statistics',
-            icon: Icons.bar_chart_rounded,
-            page: OwnerCountingPage(),
-          ),
-          RoleAction(
-            title: 'Contact Us',
-            icon: Icons.contact_support_rounded,
-            page: ContactUsPage(),
-          ),
-        ];
+        // Different access levels based on payment status
+        switch (paymentStatus.toLowerCase()) {
+          case 'approved':
+            // Active owner - show all features
+            return [
+              RoleAction(
+                title: 'Add Toilets',
+                icon: Icons.add_location_rounded,
+                page: AddToiletPage(),
+              ),
+              RoleAction(
+                title: 'Manage Toilets',
+                icon: Icons.manage_search_rounded,
+                page: ManageToiletsPage(),
+              ),
+              RoleAction(
+                title: 'Add Maintainers',
+                icon: Icons.person_add_rounded,
+                page: ImprovedAddMaintainerPage(),
+              ),
+              RoleAction(
+                title: 'Manage Maintainers',
+                icon: Icons.manage_accounts_rounded,
+                page: ImprovedManageMaintainersPage(),
+              ),
+              RoleAction(
+                title: 'View Reports',
+                icon: Icons.report_rounded,
+                page: ViewReportsPage(),
+              ),
+              RoleAction(
+                title: 'Toilet Usage Statistics',
+                icon: Icons.bar_chart_rounded,
+                page: OwnerCountingPage(),
+              ),
+              RoleAction(
+                title: 'Notifications',
+                icon: Icons.notifications,
+                page: OwnerNotificationsPage(),
+              ),
+              RoleAction(
+                title: 'Contact Us',
+                icon: Icons.contact_support_rounded,
+                page: ContactUsPage(),
+              ),
+            ];
+
+          case 'renew_pending':
+            // Renewal pending - limited access
+            return [
+              RoleAction(
+                title: 'Notifications',
+                icon: Icons.notifications,
+                page: OwnerNotificationsPage(),
+                badge: _unreadNotificationsCount > 0
+                    ? _unreadNotificationsCount.toString()
+                    : null,
+              ),
+              RoleAction(
+                title: 'Contact Us',
+                icon: Icons.contact_support_rounded,
+                page: ContactUsPage(),
+              ),
+            ];
+
+          case 'pending':
+            // New registration pending - most restricted access
+            return [
+              RoleAction(
+                title: 'Notifications',
+                icon: Icons.notifications,
+                page: OwnerNotificationsPage(),
+                badge: _unreadNotificationsCount > 0
+                    ? _unreadNotificationsCount.toString()
+                    : null,
+              ),
+              RoleAction(
+                title: 'Contact Us',
+                icon: Icons.contact_support_rounded,
+                page: ContactUsPage(),
+              ),
+            ];
+
+          default: // rejected, expired, etc.
+            return [
+              RoleAction(
+                title: 'Notifications',
+                icon: Icons.notifications,
+                page: OwnerNotificationsPage(),
+                badge: _unreadNotificationsCount > 0
+                    ? _unreadNotificationsCount.toString()
+                    : null,
+              ),
+              RoleAction(
+                title: 'Contact Us',
+                icon: Icons.contact_support_rounded,
+                page: ContactUsPage(),
+              ),
+              RoleAction(
+                title: 'Renew Subscription',
+                icon: Icons.autorenew,
+                page: RenewSubscriptionPage(),
+              ),
+            ];
+        }
+
       case 'User':
         return [
           RoleAction(
